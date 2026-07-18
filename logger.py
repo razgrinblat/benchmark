@@ -3,52 +3,30 @@ from pathlib import Path
 from datetime import datetime
 
 
-class BenchmarkLogger:
-    _logger = None
+def setup_logging(log_directory: str = "logs") -> None:
+    """
+    Configure the root logger once at program startup.
 
-    @classmethod
-    def initialize(cls, log_directory: str = "logs") -> None:
-        """
-        Initialize the global logger.
-        Should be called once at program startup.
-        """
+    All module-level loggers created with logging.getLogger(__name__)
+    will automatically propagate their records here.
+    """
+    Path(log_directory).mkdir(parents=True, exist_ok=True)
 
-        if cls._logger is not None:
-            return
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    log_file = Path(log_directory) / f"benchmark_{timestamp}.log"
 
-        Path(log_directory).mkdir(parents=True, exist_ok=True)
+    formatter = logging.Formatter(
+        fmt="[%(asctime)s] [%(levelname)-8s] [%(name)s] %(message)s",
+        datefmt="%H:%M:%S",
+    )
 
-        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(formatter)
 
-        log_file = Path(log_directory) / f"benchmark_{timestamp}.log"
+    file_handler = logging.FileHandler(log_file, encoding="utf-8")
+    file_handler.setFormatter(formatter)
 
-        logger = logging.getLogger("Benchmark")
-        logger.setLevel(logging.INFO)
-        logger.propagate = False
-
-        formatter = logging.Formatter(
-            "[%(asctime)s] [%(levelname)s] %(message)s"
-        )
-
-        # Console output
-        console_handler = logging.StreamHandler()
-        console_handler.setFormatter(formatter)
-
-        # Log file
-        file_handler = logging.FileHandler(log_file)
-        file_handler.setFormatter(formatter)
-
-        logger.addHandler(console_handler)
-        logger.addHandler(file_handler)
-
-        cls._logger = logger
-
-    @classmethod
-    def get_logger(cls) -> logging.Logger:
-
-        if cls._logger is None:
-            raise RuntimeError(
-                "Logger has not been initialized."
-            )
-
-        return cls._logger
+    root = logging.getLogger()   # root logger — all child loggers propagate here
+    root.setLevel(logging.INFO)
+    root.addHandler(console_handler)
+    root.addHandler(file_handler)

@@ -32,7 +32,7 @@ class CommandExecutionError(BenchmarkError):
         super().__init__(
             f"Command '{result.command}' failed "
             f"(exit code={result.exit_code})\n"
-            f"stderr:\n{result.stderr}"
+            f"output:\n{result.stdout}"
         )
 
 class UploadError(BenchmarkError):

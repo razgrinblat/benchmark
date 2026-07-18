@@ -1,0 +1,48 @@
+{
+  "endpoint_setting": {
+    "tx": {
+      "ip": "172.20.10.8",
+      "username": "raz",
+      "password": "razg2004"
+    },
+    "rx": {
+      "ip": "172.20.10.8",
+      "username": "raz",
+      "password": "razg2004"
+    }
+  },
+  "host_settings": {
+    "ip": "172.20.10.2",
+    "username": "benchmark_user",
+    "password": "raz",
+    "share_name": "BenchmarkShare",
+    "shared_directory_local_path": "C:\\BenchmarkShare"
+  },
+  "file_settings": {
+    "FewSmallFiles": {
+      "file_count": 10,
+      "file_size": 1,
+      "file_scale": "KB"
+    },
+    "ManyMediumFiles": {
+      "file_count": 1000,
+      "file_size": 100,
+      "file_scale": "MB"
+    }
+  },
+  "fec_settings": {
+    "LowFec": 10,
+    "NoFec": 0,
+    "HighFec": 66
+  },
+  "chunkSize_setting": {
+    "SmallChunkSize": 18000,
+    "MediumChunkSize": 80000,
+    "LargeChunkSize": 65000
+  },
+  "tests": [
+    "NoFec-ManyMediumFiles-LargeChunkSize-sequntial",
+    "LowFec-ManyMediumFiles-LargeChunkSize-parallel",
+    "HighFec-ManyMediumFiles-LargeChunkSize-sequntial"
+  ]
+}

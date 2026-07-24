@@ -3,7 +3,6 @@ from pathlib import Path
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from dut import Dut
-from session_config_deploy import deploy_to_duts
 
 logger = logging.getLogger(__name__)
 
@@ -47,9 +46,3 @@ class MountDirectories(SetupStep):
         logger.info("Mounting directories...")
         context.tx.mount(share=Path(context.benchmark_directory) / "Tx", mount_point="/SMARTCHANNEL/TX", host_settings=context.host_settings)
         context.rx.mount(share=Path(context.benchmark_directory) / "Rx", mount_point="/SMARTCHANNEL/RX", host_settings=context.host_settings)
-
-
-class DeploySessionConfig(SetupStep):
-
-    def run(self, context: SetupContext) -> None:
-        deploy_to_duts(context.tx, context.rx, context.config)

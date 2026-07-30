@@ -12,18 +12,18 @@
     }
   },
   "host_settings": {
+    "ip": "172.20.10.2",
+    "username": "benchmark_user",
+    "password": "raz",
+    "results_path": ".",
     "tx": {
       "protocol": "ftp",
-      "ip": "172.20.10.2",
-      "username": "benchmark_user",
-      "password": "raz",
+      "share_name": "BenchmarkShare",
       "path": "C:\\BenchmarkShare"
     },
     "rx": {
       "protocol": "smb",
-      "ip": "172.20.10.2",
-      "username": "benchmark_user",
-      "password": "raz",
+      "share_name": "BenchmarkShare",
       "path": "C:\\BenchmarkShare"
     }
   },
@@ -53,16 +53,8 @@
     {
       "name": "test-1",
       "sessions": [
-        "NoFec-ManyMediumFiles-LargeChunkSize-sequential",
-        "LowFec-ManyMediumFiles-LargeChunkSize-parallel",
-        "HighFec-ManyMediumFiles-LargeChunkSize-sequential"
-      ]
-    },
-    {
-      "name": "test-2",
-      "sessions": [
-        "NoFec-FewLargeFiles-SmallChunkSize-parallel",
-        "HighFec-FewLargeFiles-SmallChunkSize-sequential"
+        "NoFec-FewSmallFiles-LargeChunkSize-sequential",
+        "NoFec-FewSmallFiles-LargeChunkSize-parallel"
       ]
     }
   ]

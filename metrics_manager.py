@@ -68,5 +68,9 @@ class MetricsManager:
             f"Success={is_successful}"
         )
 
+    def add_session_metrics(self, metrics: SessionMetrics) -> None:
+        """Adds an externally collected SessionMetrics instance."""
+        self.session_metrics.append(metrics)
+
     def get_all_metrics(self) -> list[SessionMetrics]:
         return self.session_metrics

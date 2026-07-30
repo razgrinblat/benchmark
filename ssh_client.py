@@ -1,6 +1,8 @@
 from time import perf_counter, sleep
 from typing import Optional, List
+import threading
 import paramiko
+import logging
 from paramiko import Channel
 
 from exceptions import (
@@ -12,8 +14,9 @@ from exceptions import (
 )
 
 PASSWORD_PROMPT_KEYWORDS = ("password", "[sudo]", "passcode")
-CHUNK_SIZE = 4096
+CHUNK_SIZE = 1024
 
+logger = logging.getLogger(__name__)
 
 class SSHClient:
     """
@@ -55,29 +58,33 @@ class SSHClient:
             self._client.close()
             self._client = None
 
-    def run(self, command: str, role: Optional[str] = None) -> CommandResult:
+    def run(self, command: str) -> CommandResult:
         """
         Executes a command interactively over PTY, handling password prompts if requested.
+
+        Note: stdin MUST be kept alive for the duration of the call. Discarding it
+        causes ChannelStdinFile.close() -> channel.shutdown_write() -> eof_sent=True,
+        which makes all subsequent channel.send() calls silently return 0.
         """
         start = perf_counter()
-        _, stdout, _ = self._client.exec_command(command, get_pty=True)
+        stdin, stdout, _ = self._client.exec_command(command, get_pty=True)
         channel = stdout.channel
 
-        output_chunks = self._read_channel_interactively(channel, self._password)
+        stdout_str, stderr_str = self._read_channel_interactively(channel, stdin)
         exit_code = channel.recv_exit_status()
         end = perf_counter()
 
         return CommandResult(
             command=command,
             exit_code=exit_code,
-            stdout="".join(output_chunks),
-            stderr="",
+            stdout=stdout_str,
+            stderr=stderr_str,
             duration=end - start,
         )
 
-    def run_checked(self, command: str, role: Optional[str] = None) -> CommandResult:
+    def run_checked(self, command: str) -> CommandResult:
         """Executes a command and raises CommandExecutionError if exit code is non-zero."""
-        result = self.run(command, role)
+        result = self.run(command)
         if result.exit_code != 0:
             raise CommandExecutionError(result)
         return result
@@ -104,27 +111,30 @@ class SSHClient:
     # Helper methods for interactive stream processing
     # ------------------------------------------------------------------
 
-    def _read_channel_interactively(self, channel: Channel, password: str) -> List[str]:
+    def _read_channel_interactively(self, channel: Channel, stdin) -> tuple[str, str]:
         """Reads output chunks from channel while listening for password prompts."""
-        output_chunks: List[str] = []
+        stdout_chunks: List[str] = []
+        stderr_chunks: List[str] = []
         password_sent = False
 
         while not channel.exit_status_ready():
             if channel.recv_ready():
                 chunk = channel.recv(CHUNK_SIZE).decode(errors="ignore")
-                output_chunks.append(chunk)
+                stdout_chunks.append(chunk)
 
-                if password and not password_sent and self._is_password_prompt("".join(output_chunks)):
-                    channel.send(f"{password}\n".encode())
+                if not password_sent and self._is_password_prompt("".join(stdout_chunks)):
+                    stdin.write(f"{self._password}\n")
+                    stdin.flush()
                     password_sent = True
+
             elif channel.recv_stderr_ready():
                 chunk = channel.recv_stderr(CHUNK_SIZE).decode(errors="ignore")
-                output_chunks.append(chunk)
+                stderr_chunks.append(chunk)
             else:
                 sleep(0.02)
 
-        self._drain_remaining_output(channel, output_chunks)
-        return output_chunks
+        self._drain_remaining_output(channel, stdout_chunks, stderr_chunks)
+        return "".join(stdout_chunks), "".join(stderr_chunks)
 
     @staticmethod
     def _is_password_prompt(output: str) -> bool:
@@ -133,10 +143,10 @@ class SSHClient:
         return any(keyword in lower_output for keyword in PASSWORD_PROMPT_KEYWORDS)
 
     @staticmethod
-    def _drain_remaining_output(channel: Channel, output_chunks: List[str]) -> None:
+    def _drain_remaining_output(channel: Channel, stdout_chunks: List[str], stderr_chunks: List[str]) -> None:
         """Drains any leftover bytes in stdout/stderr buffers after process exit."""
         while channel.recv_ready():
-            output_chunks.append(channel.recv(CHUNK_SIZE).decode(errors="ignore"))
+            stdout_chunks.append(channel.recv(CHUNK_SIZE).decode(errors="ignore"))
 
         while channel.recv_stderr_ready():
-            output_chunks.append(channel.recv_stderr(CHUNK_SIZE).decode(errors="ignore"))
+            stderr_chunks.append(channel.recv_stderr(CHUNK_SIZE).decode(errors="ignore"))

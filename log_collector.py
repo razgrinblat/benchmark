@@ -25,7 +25,7 @@ class LogCollector:
             try:
                 log_file = target_dir / f"{dut.name}_{session_name}.log"
                 # Collect journal logs for smartchannel or system services
-                res = dut.ssh.run("journalctl -u smartchannel --no-pager -n 200 || dmesg | tail -n 100", role=dut.name)
+                res = dut.ssh.run("journalctl -u smartchannel --no-pager -n 200 || dmesg | tail -n 100")
                 with open(log_file, "w", encoding="utf-8") as f:
                     f.write(f"=== Logs for {dut.name} (Session: {session_name}) ===\n")
                     f.write(res.stdout)

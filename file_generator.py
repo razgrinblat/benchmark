@@ -33,7 +33,7 @@ class FileGenerator:
     def __init__(self, default_chunk_size: int = _CHUNK_SIZE) -> None:
         self.chunk_size = default_chunk_size
 
-    def generate_files(self, target_dir: Path, file_setting: dict, mode: str = "sequential") -> list[Path]:
+    def generate_files(self, target_dir: Path, file_setting: dict, mode: str) -> list[Path]:
         """
         Generates dummy test files in target_dir based on file_setting (file_count, file_size, file_scale).
         Mode can be 'sequential' or 'parallel'.
@@ -45,12 +45,12 @@ class FileGenerator:
         file_scale = file_setting['file_scale'].upper()
 
         size_in_bytes = file_size * _SCALE_TO_BYTES[file_scale]
-        file_paths = [target_dir / f"test_file_{i + 1}.bin" for i in range(file_count)]
+        file_paths = [target_dir / f"{target_dir.name}_{i + 1}.bin" for i in range(file_count)]
 
         logger.info(f"Generating {file_count} x {file_size}{file_scale} in {target_dir.name} ({mode} mode)")
 
         if mode == 'parallel':
-            with concurrent.futures.ProcessPoolExecutor() as executor:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
                 futures = [executor.submit(_generate_single_file, path, size_in_bytes) for path in file_paths]
                 concurrent.futures.wait(futures)
         else:

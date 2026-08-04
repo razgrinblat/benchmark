@@ -1,4 +1,3 @@
-import json
 import logging
 from pathlib import Path
 from typing import Optional, Tuple, Any
@@ -14,7 +13,6 @@ from logger import setup_worker_logging
 
 logger = logging.getLogger(__name__)
 
-REMOTE_SESSION_CONFIG_DIR = "/var/smartchannel/SessionConfig"
 
 
 class SessionExecutor:
@@ -107,16 +105,13 @@ class SessionExecutor:
         is_success = False
 
         try:
-            # Step 1: Configure DUT
-            self._configure_dut(session_info)
-
-            # Step 2: Generate files
+            # Step 1: Generate files
             total_files, total_bytes = self._generate_payload_files(tx_dir, session_info, session_str)
 
-            # Step 3: Collect logs
+            # Step 2: Collect logs
             self.log_collector.collect_logs(results_dir, session_name)
 
-            # Step 4: Validate files
+            # Step 3: Validate files
             val_result = self.integrity_validator.validate_session_files(tx_dir, rx_dir)
             is_success = val_result.is_valid
             validation_status = "PASSED" if val_result.is_valid else "FAILED"
@@ -131,23 +126,6 @@ class SessionExecutor:
 
         return total_files, total_bytes, is_success, validation_status, error_msg
 
-    def _configure_dut(self, session_info: dict) -> None:
-        """Uploads session configuration JSON to both Tx and Rx DUTs."""
-        session_name = session_info["session_name"]
-        session_config = {
-            "Name": session_name,
-            "ChunkSize": session_info.get("chunk_value"),
-            "PacketLossTolerance": session_info.get("fec_value"),
-            "SyncDirectory": f"/SMART_CHANNEL/TX_SYNC/{session_name}",
-        }
-        config_json = json.dumps(session_config, indent=4)
-        remote_path = f"{REMOTE_SESSION_CONFIG_DIR}/{session_name}.json"
-        escaped = config_json.replace("'", "'\\''")
-
-        logger.info(f"Configuring DUTs for session '{session_name}'")
-        for dut in (self.tx, self.rx):
-            dut.ssh.run_checked(f"mkdir -p {REMOTE_SESSION_CONFIG_DIR}")
-            dut.ssh.run_checked(f"echo '{escaped}' > {remote_path}")
 
     def _generate_payload_files(
         self,

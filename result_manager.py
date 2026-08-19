@@ -19,20 +19,9 @@ class ResultManager:
 
     def save_test_results(self, session_metrics: list[SessionMetrics]) -> Path:
         """
-        Saves compiled test session results to a JSON summary file.
+        Saves human readable summary TXT file.
         """
-        output_file = self.results_dir / f"{self.test_name}_results.json"
-        
-        report_data = {
-            "test_name": self.test_name,
-            "session_count": len(session_metrics),
-            "sessions": [asdict(m) for m in session_metrics],
-        }
-
-        with open(output_file, "w", encoding="utf-8") as f:
-            json.dump(report_data, f, indent=4)
-
-        # Also write human readable summary TXT file
+        # Write human readable summary TXT file
         summary_txt_file = self.results_dir / f"{self.test_name}_summary.txt"
         with open(summary_txt_file, "w", encoding="utf-8") as f:
             f.write(f"=== BENCHMARK TEST SUMMARY: {self.test_name} ===\n\n")
@@ -47,5 +36,5 @@ class ResultManager:
                     f.write(f"  Error        : {m.error_message}\n")
                 f.write("-" * 50 + "\n")
 
-        logger.info(f"Saved test results for '{self.test_name}' to {output_file}")
-        return output_file
+        logger.info(f"Saved test results summary for '{self.test_name}' to {summary_txt_file}")
+        return summary_txt_file

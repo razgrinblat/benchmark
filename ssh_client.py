@@ -107,9 +107,78 @@ class SSHClient:
             duration=end - start,
         )
 
+    def stream_lines(self, command: str):
+        """
+        Executes a long-running command (e.g. journalctl -f) and yields complete output lines,
+        automatically handling interactive password/sudo prompts if required.
+        """
+        try:
+            stdin, stdout, stderr = self._client.exec_command(command, get_pty=True)
+        except Exception as exc:
+            raise SSHConnectionError(f"Connection error while executing '{command}'") from exc
+
+        yield from self._stream_channel_lines(stdout.channel, stdin)
+        self._check_channel_exit_status(command, stdout.channel, stderr)
+
     # ------------------------------------------------------------------
     # Helper methods for interactive stream processing
     # ------------------------------------------------------------------
+
+    def _stream_channel_lines(self, channel: Channel, stdin):
+        """Yields complete lines from an active SSH channel, handling password prompts if needed."""
+        buffer = ""
+        password_sent = False
+
+        while not channel.exit_status_ready() or channel.recv_ready():
+            try:
+                if not channel.recv_ready():
+                    sleep(0.02)
+                    continue
+
+                chunk = channel.recv(CHUNK_SIZE).decode(errors="ignore")
+                if not chunk:
+                    break
+                buffer += chunk
+
+                while "\n" in buffer:
+                    line, buffer = buffer.split("\n", 1)
+                    yield line.rstrip("\r")
+
+                if not password_sent and buffer and self._is_password_prompt(buffer):
+                    logger.info("Password prompt detected in stream_lines, sending SSH password...")
+                    self._send_password(stdin)
+                    password_sent = True
+                    buffer = ""
+            except Exception:
+                break
+
+        if buffer:
+            for line in buffer.splitlines():
+                yield line.rstrip("\r")
+
+    def _check_channel_exit_status(self, command: str, channel: Channel, stderr) -> None:
+        """Verifies command exit status upon completion and raises CommandExecutionError if non-zero."""
+        try:
+            exit_code = channel.recv_exit_status()
+            if exit_code != 0:
+                error_output = stderr.read().decode().strip()
+                result = CommandResult(
+                    command=command,
+                    exit_code=exit_code,
+                    stdout="",
+                    stderr=error_output,
+                    duration=0,
+                )
+                raise CommandExecutionError(result)
+        except CommandExecutionError:
+            raise
+        except Exception:
+            pass
+
+    def _send_password(self, stdin) -> None:
+        """Writes the SSH password to stdin and flushes the buffer."""
+        stdin.write(f"{self._password}\n")
+        stdin.flush()
 
     def _read_channel_interactively(self, channel: Channel, stdin) -> tuple[str, str]:
         """Reads output chunks from channel while listening for password prompts."""
@@ -123,8 +192,7 @@ class SSHClient:
                 stdout_chunks.append(chunk)
 
                 if not password_sent and self._is_password_prompt("".join(stdout_chunks)):
-                    stdin.write(f"{self._password}\n")
-                    stdin.flush()
+                    self._send_password(stdin)
                     password_sent = True
 
             elif channel.recv_stderr_ready():

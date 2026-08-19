@@ -121,7 +121,7 @@ class TestRunner:
             "Name": session_name,
             "ChunkSize": session_info.get("chunk_value"),
             "PacketLossTolerance": session_info.get("fec_value"),
-            "SyncDirectory": f"/SMART_CHANNEL/TX_SYNC/{session_name}",
+            "SyncDirectory": f"/SMARTCHANNEL/TX/{session_name}",
         }
         config_json = json.dumps(session_config, indent=4)
         remote_path = f"{REMOTE_SESSION_CONFIG_DIR}/{session_name}.json"
@@ -136,5 +136,5 @@ class TestRunner:
     def _configure_test_sessions(self, session_list: list[str]) -> None:
         """Upload session configurations for all sessions in the test."""
         for session_str in session_list:
-            session_info = self.config_manager.get_session_info(session_str)
+            session_info = self.config_manager.parse_session_string(session_str)
             self._upload_session_config(session_info)

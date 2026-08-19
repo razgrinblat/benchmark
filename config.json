@@ -1,12 +1,12 @@
 {
   "endpoint_setting": {
     "tx": {
-      "ip": "172.20.10.8",
+      "ip": "172.20.10.12",
       "username": "raz",
       "password": "razg2004"
     },
     "rx": {
-      "ip": "172.20.10.8",
+      "ip": "172.20.10.12",
       "username": "raz",
       "password": "razg2004"
     }
@@ -34,8 +34,8 @@
       "file_scale": "KB"
     },
     "ManyMediumFiles": {
-      "file_count": 1000,
-      "file_size": 100,
+      "file_count": 100,
+      "file_size": 10,
       "file_scale": "MB"
     }
   },
@@ -53,7 +53,6 @@
     {
       "name": "test-1",
       "sessions": [
-        "NoFec-FewSmallFiles-LargeChunkSize-sequential",
         "NoFec-FewSmallFiles-LargeChunkSize-parallel"
       ]
     }

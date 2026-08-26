@@ -259,9 +259,9 @@ class SessionExecutor:
 class WorkerSessionContext:
     """Context manager for managing DUT connections and lifecycle inside a worker process."""
 
-    def __init__(self, endpoint_settings: dict, host_settings: dict, session_str: str) -> None:
-        self.endpoint_settings = endpoint_settings
-        self.host_settings = host_settings
+    def __init__(self, config_manager: ConfigurationManager, session_str: str) -> None:
+        self.endpoint_settings = config_manager.endpoint_settings
+        self.host_settings = config_manager.host_settings
         self.session_str = session_str
         self.tx_dut: Optional[Dut] = None
         self.rx_dut: Optional[Dut] = None
@@ -287,7 +287,6 @@ class WorkerSessionContext:
 def run_session_worker(
     test_name: str,
     session_str: str,
-    endpoint_settings: dict,
     config_manager: ConfigurationManager,
     results_dir: Path,
     log_queue: Optional[Any] = None,
@@ -297,7 +296,7 @@ def run_session_worker(
     Instantiates process-isolated DUT instances using WorkerSessionContext.
     """
     setup_worker_logging(log_queue)
-    with WorkerSessionContext(endpoint_settings, config_manager.host_settings, session_str) as (tx_dut, rx_dut):
+    with WorkerSessionContext(config_manager, session_str) as (tx_dut, rx_dut):
         executor = SessionExecutor(
             tx_dut=tx_dut,
             rx_dut=rx_dut,

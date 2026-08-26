@@ -111,7 +111,6 @@ class TestRunner:
                     run_session_worker,
                     test_name=test_name,
                     session_str=session_str,
-                    endpoint_settings=self.config_manager.endpoint_settings,
                     config_manager=self.config_manager,
                     results_dir=self.results_dir,
                     log_queue=self.log_queue,

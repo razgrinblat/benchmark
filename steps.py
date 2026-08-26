@@ -1,12 +1,12 @@
-from json import decoder
 import logging
-from pathlib import Path
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from dut import Dut
+from dut_settings import DutPaths
 
 logger = logging.getLogger(__name__)
 
+_DUT_PATHS = DutPaths.load()
 
 @dataclass
 class SetupContext:
@@ -33,16 +33,6 @@ class ConnectStep(SetupStep):
         context.rx.connect()
 
 
-class UploadBinaries(SetupStep):
-
-    def run(self, context: SetupContext) -> None:
-        logger.info("Uploading binaries...")
-        context.tx.upload("tx-service.exe", "/var/smartchannel/tx-service.exe")
-        context.rx.upload("rx-service.exe", "/var/smartchannel/rx-service.exe")
-        context.tx.ssh.run_checked("sudo whoami")
-        
-        logger.info("Binaries uploaded successfully")
-
 class MountDirectories(SetupStep):
 
     def run(self, context: SetupContext) -> None:
@@ -50,17 +40,16 @@ class MountDirectories(SetupStep):
 
         context.tx.mount(
             share_name=context.host_settings.get("tx").get("share_name") + "/Tx",
-            mount_point="/SMARTCHANNEL/TX",
-            ip=context.host_settings.get("ip"),
-            username=context.host_settings.get("username"),
-            password=context.host_settings.get("password"),
-        )   
-
-        context.rx.mount(
-            share_name=context.host_settings.get("rx").get("share_name") + "/Rx",
-            mount_point="/SMARTCHANNEL/RX",
+            mount_point=_DUT_PATHS.tx_mount_point,
             ip=context.host_settings.get("ip"),
             username=context.host_settings.get("username"),
             password=context.host_settings.get("password"),
         )
-        
+
+        context.rx.mount(
+            share_name=context.host_settings.get("rx").get("share_name") + "/Rx",
+            mount_point=_DUT_PATHS.rx_mount_point,
+            ip=context.host_settings.get("ip"),
+            username=context.host_settings.get("username"),
+            password=context.host_settings.get("password"),
+        )

@@ -5,7 +5,7 @@ from logger import setup_logging, stop_logging
 from dut import Dut
 from config_manager import ConfigurationManager
 from test_runner import TestRunner
-from steps import SetupContext, ConnectStep, UploadBinaries, MountDirectories
+from steps import SetupContext, ConnectStep, MountDirectories
 
 logger = logging.getLogger(__name__)
 
@@ -21,8 +21,6 @@ class BenchmarkController:
         self.tx: Dut = None
         self.rx: Dut = None
         self.results_dir: Path = None
-        self.tx_dir: Path = None
-        self.rx_dir: Path = None
         self.log_queue = None
 
     def _create_benchmark_directory(self, base_dir: str, timestamp: str) -> Path:
@@ -59,23 +57,19 @@ class BenchmarkController:
 
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         self.results_dir = self._create_benchmark_directory(results_path, timestamp)
-        self.tx_dir = Path(tx_path) / "Tx"
-        self.rx_dir = Path(rx_path) / "Rx"
-
-        self.tx_dir.mkdir(parents=True, exist_ok=True)
-        self.rx_dir.mkdir(parents=True, exist_ok=True)
 
         self.log_queue = setup_logging(log_directory=str(self.results_dir / "Results"))
-        logger.info(f"Initialized benchmark directories: Results={self.results_dir}, Tx={self.tx_dir}, Rx={self.rx_dir}")
+        logger.info(f"Initialized benchmark directories: Results={self.results_dir}")
 
     def _init_duts(self) -> None:
         """Initializes Tx and Rx DUT instances from configuration."""
         endpoints = self.config_manager.endpoint_settings
-        self.tx = Dut.from_config("Tx", endpoints["tx"])
-        self.rx = Dut.from_config("Rx", endpoints["rx"])
+        host_settings = self.config_manager.host_settings
+        self.tx = Dut.from_config("Tx", endpoints["tx"], host_settings)
+        self.rx = Dut.from_config("Rx", endpoints["rx"], host_settings)
 
     def _run_setup_steps(self) -> None:
-        """Executes connection, binary upload, and directory mounting setup steps."""
+        """Executes connection and directory mounting setup steps."""
         context = SetupContext(
             tx=self.tx,
             rx=self.rx,
@@ -84,7 +78,6 @@ class BenchmarkController:
 
         setup_steps = [
             ConnectStep(),
-            # UploadBinaries(),
             # MountDirectories(),
         ]
 
@@ -98,8 +91,6 @@ class BenchmarkController:
             tx_dut=self.tx,
             rx_dut=self.rx,
             config_manager=self.config_manager,
-            tx_dir=self.tx_dir,
-            rx_dir=self.rx_dir,
             results_dir=self.results_dir,
             log_queue=self.log_queue,
         )

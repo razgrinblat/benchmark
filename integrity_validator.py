@@ -29,8 +29,11 @@ class ValidationStatus(Enum):
 
 def _calculate_md5(file_path: Path) -> str:
     """Calculates MD5 hash of a file."""
-    hash_md5 = hashlib.md5()
+    if hasattr(hashlib, "file_digest"):
+        with file_path.open("rb") as file:
+            return hashlib.file_digest(file, "md5").hexdigest()
 
+    hash_md5 = hashlib.md5()
     with file_path.open("rb") as file:
         for chunk in iter(lambda: file.read(MD5_CHUNK_SIZE), b""):
             hash_md5.update(chunk)

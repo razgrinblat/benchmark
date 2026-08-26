@@ -15,32 +15,32 @@ from events import (
 
 logger = logging.getLogger(__name__)
 
+
 class SessionManager:
     """
     Manages the lifecycle of a benchmark session.
     Consumes events from an event queue, tracks expected file statuses,
-    handles dynamic timeouts, and updates metrics.
+    handles dynamic timeouts, and owns its own MetricsManager.
     """
 
     def __init__(
         self,
         session_name: str,
         expected_files: List[str],
-        total_bytes: int,
+        file_size_bytes: int,
         events_queue: Queue,
-        metrics_manager: MetricsManager,
-        metrics: SessionMetrics,
         timeout: float,
     ):
         self.session_name = session_name
         self.expected_files = expected_files
-        self.total_bytes = total_bytes
         self.events_queue = events_queue
-        self.metrics_manager = metrics_manager
-        self.metrics = metrics
         self.timeout = timeout
 
+        self.metrics_manager = MetricsManager(session_name, file_size_bytes)
+
         self.file_status: Dict[str, str] = {f: "Pending" for f in expected_files}
+        self._completed_count = 0
+        self._failed_count = 0
         self.start_time = None
         self.is_successful = False
         self.validation_status = "PENDING"
@@ -80,7 +80,7 @@ class SessionManager:
                     break
 
                 if self._check_all_completed():
-                    passed = all(status == "Passed" for status in self.file_status.values())
+                    passed = (self._failed_count == 0)
                     status = "PASSED" if passed else "FAILED"
                     err_msg = None if passed else f"Some files failed transfer: {self._get_failed_files_summary()}"
                     self._finalize(is_successful=passed, validation_status=status, error_message=err_msg)
@@ -96,17 +96,22 @@ class SessionManager:
     def _handle_event(self, event: Any) -> None:
         logger.debug(f"SessionManager handling event: {event}")
         if isinstance(event, TransferSuccessEvent):
-            if event.filename in self.file_status:
+            if event.filename in self.file_status and self.file_status[event.filename] == "Pending":
                 self.file_status[event.filename] = "Passed"
+                self._completed_count += 1
+                self.metrics_manager.record_event(event)
                 logger.info(f"File '{event.filename}' transfer passed.")
-            else:
+            elif event.filename not in self.file_status:
                 logger.warning(f"Received TransferSuccessEvent for unexpected file: '{event.filename}'")
 
         elif isinstance(event, TransferFailedEvent):
-            if event.filename in self.file_status:
+            if event.filename in self.file_status and self.file_status[event.filename] == "Pending":
                 self.file_status[event.filename] = "Failed"
+                self._completed_count += 1
+                self._failed_count += 1
+                self.metrics_manager.record_event(event)
                 logger.error(f"File '{event.filename}' transfer failed: {event.reason}")
-            else:
+            elif event.filename not in self.file_status:
                 logger.warning(f"Received TransferFailedEvent for unexpected file: '{event.filename}'")
 
         elif isinstance(event, LogMonitorErrorEvent):
@@ -126,7 +131,7 @@ class SessionManager:
             )
 
     def _check_all_completed(self) -> bool:
-        return all(status in ("Passed", "Failed") for status in self.file_status.values())
+        return self._completed_count == len(self.expected_files)
 
     def _get_failed_files_summary(self) -> str:
         failed_files = [f for f, status in self.file_status.items() if status == "Failed"]
@@ -138,28 +143,24 @@ class SessionManager:
         self.error_message = error_message
         self.finished_event.set()
 
-    def wait_until_finished(self) -> dict:
+    def wait_until_finished(self) -> SessionMetrics:
         """
-        Blocks the calling thread until the session completes or times out.
-        Finalizes metrics tracking upon completion.
+        Blocks the calling thread until the session completes or times out,
+        then returns the session's final SessionMetrics.
         """
         self.finished_event.wait()
         if self.thread:
             self.thread.join(timeout=2.0)
             self.thread = None
 
-        # Record completion metrics
-        self.metrics_manager.finish_session(
-            metrics=self.metrics,
-            total_files=len(self.expected_files),
-            total_bytes=self.total_bytes,
-            is_successful=self.is_successful,
-            validation_status=self.validation_status,
-            error_message=self.error_message
-        )
+        metrics = self.metrics_manager.finalize()
 
-        return {
-            "is_successful": self.is_successful,
-            "validation_status": self.validation_status,
-            "error_message": self.error_message,
-        }
+        # SessionManager owns the authoritative pass/fail verdict (it knows about
+        # timeouts and missing files, which MetricsManager can't infer from
+        # transfer events alone) — so it overrides whatever finalize() guessed.
+        metrics.is_successful = self.is_successful
+        metrics.validation_status = self.validation_status
+        if self.error_message:
+            metrics.error_message = self.error_message
+
+        return metrics

@@ -11,19 +11,26 @@ logger = logging.getLogger(__name__)
 
 class Dut:
 
-    def __init__(self, name: str, ip: str, username: str, password: str) -> None:
+    def __init__(self, name: str, ip: str, username: str, password: str, local_dir: Path = None) -> None:
         self.name = name
         self.ssh = SSHClient(ip, username, password)
+        self.local_dir = local_dir
 
     @classmethod
-    def from_config(cls, name: str, endpoint: dict) -> "Dut":
-        """Creates a Dut instance from a config endpoint dict."""
-        return cls(
+    def from_config(cls, name: str, endpoint: dict, host_settings: dict = None) -> "Dut":
+        """Creates a Dut instance from a config endpoint dict and initializes local directory."""
+        dut = cls(
             name=name,
             ip=endpoint["ip"],
             username=endpoint["username"],
             password=endpoint["password"],
         )
+        if host_settings:
+            path_str = host_settings.get(name.lower(), {}).get("path")
+            if path_str:
+                dut.local_dir = Path(path_str) / name
+                dut.local_dir.mkdir(parents=True, exist_ok=True)
+        return dut
 
     # ------------------------------------------------------------------
     # Connection

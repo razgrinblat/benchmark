@@ -1,12 +1,12 @@
 {
   "endpoint_setting": {
     "tx": {
-      "ip": "172.20.10.12",
+      "ip": "172.20.10.8",
       "username": "raz",
       "password": "razg2004"
     },
     "rx": {
-      "ip": "172.20.10.12",
+      "ip": "172.20.10.8",
       "username": "raz",
       "password": "razg2004"
     }
@@ -34,9 +34,14 @@
       "file_scale": "KB"
     },
     "ManyMediumFiles": {
-      "file_count": 100,
-      "file_size": 10,
+      "file_count": 3,
+      "file_size": 100,
       "file_scale": "MB"
+    },
+    "ManySmallFiles": {
+      "file_count": 100,
+      "file_size": 1,
+      "file_scale": "KB"
     }
   },
   "fec_settings": {
@@ -53,7 +58,25 @@
     {
       "name": "test-1",
       "sessions": [
-        "NoFec-FewSmallFiles-LargeChunkSize-parallel"
+        "NoFec-ManySmallFiles-LargeChunkSize-parallel"
+      ]
+    },
+    {
+      "name": "test-2",
+      "sessions": [
+        "NoFec-ManySmallFiles-LargeChunkSize-sequntial"
+      ]
+    },
+    {
+      "name": "test-3",
+      "sessions": [
+        "NoFec-ManyMediumFiles-LargeChunkSize-parallel"
+      ]
+    },
+    {
+      "name": "test-4",
+      "sessions": [
+        "NoFec-ManyMediumFiles-LargeChunkSize-sequntial"
       ]
     }
   ]

@@ -1,17 +1,17 @@
 import concurrent.futures
 import logging
-import json
+import shutil
 from pathlib import Path
 from typing import Optional, Any
 from dut import Dut
 from config_manager import ConfigurationManager
-from metrics_manager import MetricsManager
+from dut_settings import DutPaths
+from metrics_manager import SessionMetrics
 from result_manager import ResultManager
 from session_executor import run_session_worker
 
 logger = logging.getLogger(__name__)
 
-REMOTE_SESSION_CONFIG_DIR = "/var/smartchannel/SessionConfig"
 
 class TestRunner:
     """
@@ -25,18 +25,15 @@ class TestRunner:
         tx_dut: Dut,
         rx_dut: Dut,
         config_manager: ConfigurationManager,
-        tx_dir: Path,
-        rx_dir: Path,
         results_dir: Path,
         log_queue: Optional[Any] = None,
     ) -> None:
         self.tx = tx_dut
         self.rx = rx_dut
         self.config_manager = config_manager
-        self.tx_dir = tx_dir
-        self.rx_dir = rx_dir
         self.results_dir = results_dir
         self.log_queue = log_queue
+        self.dut_paths = DutPaths.load()
 
     def run_all_tests(self) -> None:
         """
@@ -56,28 +53,53 @@ class TestRunner:
 
         logger.info(f"=== Starting Test: '{test_name}' ({len(session_list)} parallel sessions) ===")
 
-        metrics_manager = MetricsManager(test_name)
         test_results_dir = self.results_dir / "Results" / test_name
         result_manager = ResultManager(test_name, test_results_dir)
 
-        if session_list:
-            self._configure_test_sessions(session_list)
-            self._execute_sessions_in_parallel(test_name, session_list, metrics_manager)
+        session_metrics = []
+        try:
+            if session_list:
+                session_metrics = self._execute_sessions_in_parallel(test_name, session_list)
 
-        result_manager.save_test_results(metrics_manager.get_all_metrics())
-        logger.info(f"=== Finished Test: '{test_name}' ===")
+            result_manager.save_test_results(session_metrics)
+            logger.info(f"=== Finished Test: '{test_name}' ===")
+        finally:
+            self._test_cleanup(session_list)
 
-    def _test_cleanup():
-        """delete all test files from Tx and Rx paths and delete all seesion 
+    def _test_cleanup(self, session_list: list[str]) -> None:
+        """delete all test files from Tx and Rx paths and delete all session 
         Configurations from the config directory"""
-        pass
+        logger.info("Running test cleanup: deleting local directories and remote config files...")
+        config_dir = self.dut_paths.session_config_path
+        
+        for session_str in session_list:
+            session_info = self.config_manager.parse_session_string(session_str)
+            session_name = session_info["session_name"]
+            
+            # Clean local Tx and Rx directories
+            tx_session_dir = self.tx.local_dir / session_name
+            rx_session_dir = self.rx.local_dir / session_name
+            
+            if tx_session_dir.exists():
+                shutil.rmtree(tx_session_dir, ignore_errors=True)
+            if rx_session_dir.exists():
+                shutil.rmtree(rx_session_dir, ignore_errors=True)
+                
+            # Clean remote config file
+            remote_path = f"{config_dir}/{session_name}.json"
+            for dut in [self.tx, self.rx]:
+                if dut == self.rx and self.rx.ssh._host == self.tx.ssh._host:
+                    continue  # We only uploaded to Tx in this case
+                try:
+                    dut.ssh.run_checked(f"rm -f {remote_path}")
+                except Exception as e:
+                    logger.warning(f"Failed to delete remote config {remote_path} on {dut.ssh._host}: {e}")
 
     def _execute_sessions_in_parallel(
         self,
         test_name: str,
         session_list: list[str],
-        metrics_manager: MetricsManager,
-    ) -> None:
+    ) -> list[SessionMetrics]:
         """Launches process pool executor for parallel session execution."""
         max_workers = len(session_list)
         logger.info(f"Launching {max_workers} session processes in parallel for test '{test_name}'...")
@@ -91,8 +113,6 @@ class TestRunner:
                     session_str=session_str,
                     endpoint_settings=self.config_manager.endpoint_settings,
                     config_manager=self.config_manager,
-                    tx_dir=self.tx_dir,
-                    rx_dir=self.rx_dir,
                     results_dir=self.results_dir,
                     log_queue=self.log_queue,
                 ): session_str
@@ -108,33 +128,11 @@ class TestRunner:
                 except Exception as exc:
                     logger.exception(f"Session process for '{session_str}' failed with exception: {exc}")
 
-        # Preserve configured session order when adding to metrics manager
+        # Preserve configured session order when returning results
+        ordered_metrics = []
         for session_str in session_list:
             if session_str in results_by_session:
-                metrics_manager.add_session_metrics(results_by_session[session_str])
+                ordered_metrics.append(results_by_session[session_str])
+        
+        return ordered_metrics
 
-
-    def _upload_session_config(self, session_info: dict) -> None:
-        """Uploads session configuration JSON to both Tx and Rx DUTs."""
-        session_name = session_info["session_name"]
-        session_config = {
-            "Name": session_name,
-            "ChunkSize": session_info.get("chunk_value"),
-            "PacketLossTolerance": session_info.get("fec_value"),
-            "SyncDirectory": f"/SMARTCHANNEL/TX/{session_name}",
-        }
-        config_json = json.dumps(session_config, indent=4)
-        remote_path = f"{REMOTE_SESSION_CONFIG_DIR}/{session_name}.json"
-        escaped = config_json.replace("'", "'\\''")
-
-        logger.info(f"Configuring DUTs for session '{session_name}'")
-        for dut in (self.tx, self.rx):
-            dut.ssh.run_checked(f"mkdir -p {REMOTE_SESSION_CONFIG_DIR}")
-            dut.ssh.run_checked(f"echo '{escaped}' > {remote_path}")
-
-    
-    def _configure_test_sessions(self, session_list: list[str]) -> None:
-        """Upload session configurations for all sessions in the test."""
-        for session_str in session_list:
-            session_info = self.config_manager.parse_session_string(session_str)
-            self._upload_session_config(session_info)

@@ -27,13 +27,17 @@ class ResultManager:
             f.write(f"=== BENCHMARK TEST SUMMARY: {self.test_name} ===\n\n")
             for m in session_metrics:
                 f.write(f"Session: {m.session_name}\n")
-                f.write(f"  Status       : {m.validation_status}\n")
-                f.write(f"  Duration     : {m.duration_seconds:.2f} s\n")
-                f.write(f"  Files        : {m.total_files}\n")
-                f.write(f"  Bytes        : {m.total_bytes:,} bytes\n")
-                f.write(f"  Throughput   : {m.throughput_mbps:.2f} Mbps\n")
+                f.write(f"  Status              : {m.validation_status}\n")
+                f.write(f"  Session Duration    : {m.session_duration_seconds:.2f} s\n")
+                f.write(f"  Total Files         : {m.total_files}\n")
+                f.write(f"  Failed Files        : {m.failed_files}\n")
+                f.write(f"  Total Bytes         : {m.total_bytes:,} bytes\n")
+                f.write(f"  Session Throughput  : {m.session_throughput_mbps:.2f} Mbps\n")
+                f.write(f"  Avg File Throughput : {m.avg_file_throughput_mbps:.2f} Mbps\n")
+                f.write(f"  Min Transfer Time   : {m.min_file_transfer_time_ms} ms\n")
+                f.write(f"  Max Transfer Time   : {m.max_file_transfer_time_ms} ms\n")
                 if m.error_message:
-                    f.write(f"  Error        : {m.error_message}\n")
+                    f.write(f"  Error               : {m.error_message}\n")
                 f.write("-" * 50 + "\n")
 
         logger.info(f"Saved test results summary for '{self.test_name}' to {summary_txt_file}")

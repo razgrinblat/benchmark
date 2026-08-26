@@ -2,7 +2,7 @@ import re
 import logging
 from datetime import datetime
 from typing import Optional, Any
-
+from dut_settings import LogFormats
 from events import (
     TransferSuccessEvent,
     TransferFailedEvent,
@@ -13,23 +13,6 @@ logger = logging.getLogger(__name__)
 # Matches ISO timestamps at the beginning of the log line
 ISO_TS_PATTERN = re.compile(r"^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:[+-]\d{2}:?\d{2}|Z)?)")
 
-# regexes to extract file names and transfer metrics
-SUCCESS_PATTERNS = [
-    re.compile(r"transfer\s+success(?:ful)?:\s*([\w\-\.]+)", re.IGNORECASE),
-    re.compile(r"successfully\s+transferred\s+([\w\-\.]+)", re.IGNORECASE),
-    re.compile(r"file\s+([\w\-\.]+)\s+transferred\s+successfully", re.IGNORECASE),
-    re.compile(r"([\w\-\.]+)\s+transferred\s+successfully", re.IGNORECASE),
-]
-
-FAILURE_PATTERNS = [
-    re.compile(r"transfer\s+failed?:\s*([\w\-\.]+)(?:\s*-\s*(.*))?", re.IGNORECASE),
-    re.compile(r"failed\s+to\s+transfer\s+([\w\-\.]+)(?:\s*:\s*(.*))?", re.IGNORECASE),
-    re.compile(r"file\s+([\w\-\.]+)\s+transfer\s+failed?(?:\s*:\s*(.*))?", re.IGNORECASE),
-    re.compile(r"([\w\-\.]+)\s+transfer\s+failed?(?:\s*:\s*(.*))?", re.IGNORECASE),
-]
-
-TIME_PATTERN = re.compile(r"in\s+(\d+)\s*ms", re.IGNORECASE)
-
 
 class LogParser:
     """
@@ -39,6 +22,36 @@ class LogParser:
 
     def __init__(self, session_name: str) -> None:
         self.session_name = session_name
+        log_formats = LogFormats.load()
+        self.success_pattern = self._format_to_regex(log_formats.success_log_format)
+        self.failure_pattern = self._format_to_regex(log_formats.failure_log_format)
+
+    def _format_to_regex(self, format_str: str) -> re.Pattern:
+        """
+        Converts a user-defined log format string containing placeholders
+        into a regular expression pattern with named capture groups.
+        """
+        placeholders = {
+            "{filename}": r"(?P<filename>[\w\-\.]+)",
+            "{time}": r"(?P<time>\d+)",
+            "{error}": r"(?P<reason>.+)",
+            "{reason}": r"(?P<reason>.+)",
+        }
+
+        # Split format string by placeholders (braces with word inside)
+        parts = re.split(r"(\{[a-zA-Z_]+\})", format_str)
+        regex_parts = []
+        for part in parts:
+            if part in placeholders:
+                regex_parts.append(placeholders[part])
+            elif part.startswith("{") and part.endswith("}"):
+                # Capture any unknown placeholder as a named group with a general pattern
+                group_name = part[1:-1]
+                regex_parts.append(f"(?P<{group_name}>.+)")
+            else:
+                regex_parts.append(re.escape(part))
+
+        return re.compile("".join(regex_parts), re.IGNORECASE)
 
     def parse(self, line: str) -> Optional[Any]:
         """
@@ -97,19 +110,24 @@ class LogParser:
         Checks if the message indicates a successful transfer.
         If matched, parses transfer time and returns TransferSuccessEvent.
         """
-        for pattern in SUCCESS_PATTERNS:
-            match = pattern.search(msg)
-            if match:
-                filename = match.group(1)
-                time_match = TIME_PATTERN.search(msg)
-                transfer_time_ms = int(time_match.group(1)) if time_match else 0
+        match = self.success_pattern.search(msg)
+        if match:
+            groups = match.groupdict()
+            filename = groups.get("filename")
+            
+            transfer_time_ms = 0
+            if "time" in groups:
+                try:
+                    transfer_time_ms = int(groups["time"])
+                except ValueError:
+                    logger.warning(f"Failed to parse time group: {groups['time']}")
 
-                return TransferSuccessEvent(
-                    session_name=self.session_name,
-                    filename=filename,
-                    transfer_time_ms=transfer_time_ms,
-                    timestamp=timestamp,
-                )
+            return TransferSuccessEvent(
+                session_name=self.session_name,
+                filename=filename,
+                transfer_time_ms=transfer_time_ms,
+                timestamp=timestamp,
+            )
         return None
 
     def _match_failure(self, msg: str, timestamp: datetime) -> Optional[TransferFailedEvent]:
@@ -117,18 +135,16 @@ class LogParser:
         Checks if the message indicates a failed transfer.
         If matched, extracts the reason and returns TransferFailedEvent.
         """
-        for pattern in FAILURE_PATTERNS:
-            match = pattern.search(msg)
-            if match:
-                filename = match.group(1)
-                reason = "Unknown transfer failure"
-                if len(match.groups()) > 1 and match.group(2):
-                    reason = match.group(2).strip()
+        match = self.failure_pattern.search(msg)
+        if match:
+            groups = match.groupdict()
+            filename = groups.get("filename")
+            reason = groups.get("reason", "Unknown transfer failure").strip()
 
-                return TransferFailedEvent(
-                    session_name=self.session_name,
-                    filename=filename,
-                    reason=reason,
-                    timestamp=timestamp,
-                )
+            return TransferFailedEvent(
+                session_name=self.session_name,
+                filename=filename,
+                reason=reason,
+                timestamp=timestamp,
+            )
         return None

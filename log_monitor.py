@@ -7,10 +7,12 @@ from dut import Dut
 from ssh_client import SSHClient
 from log_parser import LogParser
 from events import LogMonitorErrorEvent
+from dut_settings import DutPaths
 
 logger = logging.getLogger(__name__)
 
-SERVICE_NAME = "smartchannel"
+_DUT_PATHS = DutPaths.load()
+SERVICE_NAME = _DUT_PATHS.service_name
 
 class LogMonitor:
     """
@@ -38,6 +40,7 @@ class LogMonitor:
 
         self.thread = None
         self.stop_event = threading.Event()
+        self.stream_ready_event = threading.Event()
 
     def start(self) -> None:
         """
@@ -45,6 +48,7 @@ class LogMonitor:
         """
         logger.info(f"Starting log monitor for session: {self.session_name}")
         self.stop_event.clear()
+        self.stream_ready_event.clear()
         self.thread = threading.Thread(
             target=self._monitor_loop,
             daemon=True
@@ -58,6 +62,7 @@ class LogMonitor:
         try:
             logger.info("LogMonitor background thread establishing SSH connection...")
             self.ssh_client.connect()
+            self.stream_ready_event.set()
         except Exception as exc:
             logger.exception("LogMonitor failed to connect via SSH")
             self.events_queue.put(LogMonitorErrorEvent(reason=f"SSH connection failed: {exc}", timestamp=datetime.now()))
@@ -67,7 +72,6 @@ class LogMonitor:
         try:
             logger.info(f"LogMonitor streaming command: {command}")
             for line in self.ssh_client.stream_lines(command):
-                logger.info(f"LogMonitor received line: {line}")
                 if self.stop_event.is_set():
                     break
 
@@ -109,6 +113,7 @@ class LogMonitor:
         """
         return (
             f"sudo stdbuf -oL journalctl -u {SERVICE_NAME} "
+            f"-n 0 "
             f"-f "
             f"--no-pager "
             f"-o short-iso"

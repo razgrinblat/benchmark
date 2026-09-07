@@ -2,8 +2,9 @@ import re
 import logging
 from datetime import datetime
 from typing import Optional, Any
-from dut_settings import LogFormats
-from events import (
+
+from config.dut_settings import LogFormats
+from core.events import (
     TransferSuccessEvent,
     TransferFailedEvent,
 )

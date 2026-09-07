@@ -2,7 +2,7 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Optional
-from events import TransferSuccessEvent, TransferFailedEvent
+from core.events import TransferSuccessEvent, TransferFailedEvent
 
 logger = logging.getLogger(__name__)
 

@@ -64,4 +64,3 @@ def stop_logging() -> None:
     if _listener:
         _listener.stop()
         _listener = None
-

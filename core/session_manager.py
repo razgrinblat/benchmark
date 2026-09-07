@@ -5,8 +5,8 @@ import threading
 from typing import List, Dict, Optional, Any
 from queue import Queue
 
-from metrics_manager import MetricsManager, SessionMetrics
-from events import (
+from validation.metrics_manager import MetricsManager, SessionMetrics
+from core.events import (
     TransferSuccessEvent,
     TransferFailedEvent,
     LogMonitorErrorEvent,

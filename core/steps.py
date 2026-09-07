@@ -2,15 +2,13 @@ import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from dut import Dut
-from dut_settings import DutPaths
+from config import DutPaths
 
 logger = logging.getLogger(__name__)
 
-_DUT_PATHS = DutPaths.load()
 
 @dataclass
 class SetupContext:
-
     tx: Dut
     rx: Dut
     host_settings: dict
@@ -37,10 +35,11 @@ class MountDirectories(SetupStep):
 
     def run(self, context: SetupContext) -> None:
         logger.info("Mounting directories...")
+        dut_paths = DutPaths.load()
 
         context.tx.mount(
             share_name=context.host_settings.get("tx").get("share_name") + "/Tx",
-            mount_point=_DUT_PATHS.tx_mount_point,
+            mount_point=dut_paths.tx_mount_point,
             ip=context.host_settings.get("ip"),
             username=context.host_settings.get("username"),
             password=context.host_settings.get("password"),
@@ -48,7 +47,7 @@ class MountDirectories(SetupStep):
 
         context.rx.mount(
             share_name=context.host_settings.get("rx").get("share_name") + "/Rx",
-            mount_point=_DUT_PATHS.rx_mount_point,
+            mount_point=dut_paths.rx_mount_point,
             ip=context.host_settings.get("ip"),
             username=context.host_settings.get("username"),
             password=context.host_settings.get("password"),

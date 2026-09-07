@@ -3,16 +3,13 @@ import logging
 from datetime import datetime
 from queue import Queue
 
-from dut import Dut
-from ssh_client import SSHClient
-from log_parser import LogParser
-from events import LogMonitorErrorEvent
-from dut_settings import DutPaths
+from dut import Dut, SSHClient
+from monitoring.log_parser import LogParser
+from core.events import LogMonitorErrorEvent
+from config import DutPaths
 
 logger = logging.getLogger(__name__)
 
-_DUT_PATHS = DutPaths.load()
-SERVICE_NAME = _DUT_PATHS.service_name
 
 class LogMonitor:
     """
@@ -111,8 +108,10 @@ class LogMonitor:
         Builds the journalctl streaming command using sudo with stdbuf line buffering.
         Session filtering is handled in Python to avoid journalctl --grep streaming issues on older systemd versions.
         """
+        dut_paths = DutPaths.load()
+        service_name = dut_paths.service_name
         return (
-            f"sudo stdbuf -oL journalctl -u {SERVICE_NAME} "
+            f"sudo stdbuf -oL journalctl -u {service_name} "
             f"-n 0 "
             f"-f "
             f"--no-pager "

@@ -38,4 +38,3 @@ class SessionFileManager:
 
     def get_rx_dir(self) -> Path:
         return self.rx_session_dir
-

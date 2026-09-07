@@ -4,11 +4,9 @@ import shutil
 from pathlib import Path
 from typing import Optional, Any
 from dut import Dut
-from config_manager import ConfigurationManager
-from dut_settings import DutPaths
-from metrics_manager import SessionMetrics
-from result_manager import ResultManager
-from session_executor import run_session_worker
+from config import ConfigurationManager, DutPaths
+from validation import SessionMetrics, ResultManager
+from core.session_executor import run_session_worker
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +42,6 @@ class TestRunner:
 
         for test_def in tests:
             self._run_single_test_suite(test_def)
-
 
     def _run_single_test_suite(self, test_def: dict) -> None:
         """Runs all sessions for a single test definition and persists results."""
@@ -134,4 +131,3 @@ class TestRunner:
                 ordered_metrics.append(results_by_session[session_str])
         
         return ordered_metrics
-

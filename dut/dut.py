@@ -1,10 +1,8 @@
-import logger
-from multiprocessing import sharedctypes
 import logging
 from pathlib import Path
 
-from exceptions import CommandResult, UploadResult
-from ssh_client import SSHClient
+from dut.exceptions import CommandResult, UploadResult
+from dut.ssh_client import SSHClient
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +80,6 @@ class Dut:
         """
         Mount a remote CIFS share using credentials from host_settings.
         """
-
         options = f"username={username},password={password},uid=$(id -u),gid=$(id -g)"
         mount_cmd = f"sudo -S mount -t cifs //{ip}/{share_name} {mount_point} -o {options}"
         self.ssh.run_checked(mount_cmd)

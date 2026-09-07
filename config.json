@@ -17,7 +17,7 @@
     "password": "raz",
     "results_path": ".",
     "tx": {
-      "protocol": "ftp",
+      "protocol": "smb",
       "share_name": "BenchmarkShare",
       "path": "C:\\BenchmarkShare"
     },
@@ -54,6 +54,48 @@
     "MediumChunkSize": 80000,
     "LargeChunkSize": 65000
   },
+  "session_definitions": {
+    "Wizard_Session_Alpha": {
+      "mode": "parallel",
+      "file_count": 5,
+      "file_size": 2,
+      "file_scale": "MB",
+      "fec_value": 10,
+      "chunk_value": 65000
+    },
+    "Wizard_Session_Beta": {
+      "mode": "sequential",
+      "file_count": 20,
+      "file_size": 500,
+      "file_scale": "KB",
+      "fec_value": 0,
+      "chunk_value": 18000
+    },
+    "Test-5_Session_1": {
+      "mode": "parallel",
+      "file_count": 10,
+      "file_size": 1,
+      "file_scale": "MB",
+      "fec_value": 0,
+      "chunk_value": 65000
+    },
+    "Test-5_Session_2": {
+      "mode": "parallel",
+      "file_count": 10,
+      "file_size": 1,
+      "file_scale": "MB",
+      "fec_value": 0,
+      "chunk_value": 65000
+    },
+    "Test-5_Session_3": {
+      "mode": "parallel",
+      "file_count": 10,
+      "file_size": 1,
+      "file_scale": "MB",
+      "fec_value": 0,
+      "chunk_value": 65000
+    }
+  },
   "tests": [
     {
       "name": "test-1",
@@ -77,6 +119,14 @@
       "name": "test-4",
       "sessions": [
         "NoFec-ManyMediumFiles-LargeChunkSize-sequntial"
+      ]
+    },
+    {
+      "name": "Test-5",
+      "sessions": [
+        "Test-5_Session_1",
+        "Test-5_Session_2",
+        "Test-5_Session_3"
       ]
     }
   ]

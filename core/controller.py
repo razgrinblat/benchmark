@@ -1,11 +1,11 @@
 import logging
 from pathlib import Path
 from datetime import datetime
-from logger import setup_logging, stop_logging
+from monitoring import setup_logging, stop_logging
 from dut import Dut
-from config_manager import ConfigurationManager
-from test_runner import TestRunner
-from steps import SetupContext, ConnectStep, MountDirectories
+from config import ConfigurationManager
+from core.test_runner import TestRunner
+from core.steps import SetupContext, ConnectStep, MountDirectories
 
 logger = logging.getLogger(__name__)
 
@@ -15,8 +15,9 @@ class BenchmarkController:
     Top-level orchestrator managing the full benchmark execution lifecycle.
     """
 
-    def __init__(self, config_path: str = "config.json") -> None:
-        self.config_path = config_path
+    def __init__(self, args) -> None:
+        self.args = args
+        self.config_path = args.config
         self.config_manager: ConfigurationManager = None
         self.tx: Dut = None
         self.rx: Dut = None
@@ -58,6 +59,10 @@ class BenchmarkController:
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         self.results_dir = self._create_benchmark_directory(results_path, timestamp)
 
+        # Set global verbose logging early if requested
+        if self.args.verbose:
+            logging.getLogger().setLevel(logging.DEBUG)
+
         self.log_queue = setup_logging(log_directory=str(self.results_dir / "Results"))
         logger.info(f"Initialized benchmark directories: Results={self.results_dir}")
 
@@ -78,15 +83,17 @@ class BenchmarkController:
 
         setup_steps = [
             ConnectStep(),
-            # MountDirectories(),
         ]
+        
+        if self.args.mount:
+            setup_steps.append(MountDirectories())
 
         for step in setup_steps:
             logger.info(f"Running setup step: {step.__class__.__name__}")
             step.run(context)
 
     def _run_tests(self) -> None:
-        """Instantiates TestRunner and executes all configured tests."""
+        """Instantiates TestRunner and executes all configured tests, filtered by --test if provided."""
         runner = TestRunner(
             tx_dut=self.tx,
             rx_dut=self.rx,
@@ -94,6 +101,15 @@ class BenchmarkController:
             results_dir=self.results_dir,
             log_queue=self.log_queue,
         )
+        
+        # If --test was provided, modify the config_manager to only return that test
+        if self.args.test:
+            tests = [t for t in self.config_manager.tests if t.get("name") == self.args.test]
+            if not tests:
+                logger.error(f"Test suite '{self.args.test}' not found in configuration!")
+                return
+            self.config_manager.config_data["tests"] = tests
+
         runner.run_all_tests()
 
     def finish_benchmark(self) -> None:

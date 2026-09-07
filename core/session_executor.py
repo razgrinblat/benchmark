@@ -7,17 +7,15 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional, Tuple, Any
 from queue import Queue
+
 from dut import Dut
-from dut_settings import DutPaths
-from config_manager import ConfigurationManager
-from file_generator import FileGenerator, _SCALE_TO_BYTES
-from session_file_manager import SessionFileManager
-from integrity_validator import IntegrityValidator
-from metrics_manager import SessionMetrics
-from logger import setup_worker_logging
-from log_monitor import LogMonitor
-from session_manager import SessionManager
-from events import FileGenerationFailedEvent
+from config import DutPaths, ConfigurationManager
+from validation import FileGenerator, IntegrityValidator, SessionMetrics
+from validation.file_generator import _SCALE_TO_BYTES
+from core.session_file_manager import SessionFileManager
+from core.session_manager import SessionManager
+from core.events import FileGenerationFailedEvent
+from monitoring import setup_worker_logging, LogMonitor
 
 logger = logging.getLogger(__name__)
 

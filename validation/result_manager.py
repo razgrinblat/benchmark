@@ -2,7 +2,7 @@ import logging
 import csv
 from pathlib import Path
 from dataclasses import asdict
-from metrics_manager import SessionMetrics
+from validation.metrics_manager import SessionMetrics
 
 logger = logging.getLogger(__name__)
 

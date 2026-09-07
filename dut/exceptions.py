@@ -9,6 +9,7 @@ class CommandResult:
     stderr: str
     duration: float
 
+
 @dataclass
 class UploadResult:
     local_file: str
@@ -35,6 +36,7 @@ class CommandExecutionError(BenchmarkError):
             f"stdout:\n{result.stdout}\n"
             f"stderr:\n{result.stderr}\n"
         )
+
 
 class UploadError(BenchmarkError):
 

@@ -5,7 +5,7 @@ import paramiko
 import logging
 from paramiko import Channel
 
-from exceptions import (
+from dut.exceptions import (
     SSHConnectionError,
     CommandExecutionError,
     CommandResult,
@@ -17,6 +17,7 @@ PASSWORD_PROMPT_KEYWORDS = ("password", "[sudo]", "passcode")
 CHUNK_SIZE = 1024
 
 logger = logging.getLogger(__name__)
+
 
 class SSHClient:
     """
